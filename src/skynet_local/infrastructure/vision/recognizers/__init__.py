@@ -1,0 +1,1 @@
+"""Face recognizer adapter implementations."""

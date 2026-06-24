@@ -1,0 +1,30 @@
+app:
+  name: "Skynet Local"
+  environment: "desktop"
+source:
+  kind: "camera"
+  camera_index: 0
+  video_path: ""
+  image_path: ""
+vision:
+  detector_backend: "opencv_onnx"
+  recognizer_backend: "sface"
+  attributes_backend: "none"
+  pose_backend: "landmarks_pnp"
+  detection_interval: 1
+  matching_threshold: 0.45
+voice:
+  stt_backend: "vosk"
+  speaker_backend: "onnx_speaker"
+  tts_backend: "none"
+  owner_only_commands: true
+gui:
+  backend: "opencv"
+  mode: "classic"
+  red_tint_alpha: 0.18
+  side_panel_width: 320
+storage:
+  sqlite_url: "sqlite:///data/embeddings/skynet_local.db"
+runtime:
+  windows_safe: true
+  enable_fallbacks: true
