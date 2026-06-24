@@ -12,6 +12,7 @@ from skynet_local.infrastructure.gui.opencv.window_backend import OpenCvWindowBa
 from skynet_local.infrastructure.storage.face_registry import FileFaceRegistry
 from skynet_local.infrastructure.storage.identity_repository import IdentityRepository
 from skynet_local.infrastructure.vision.detectors.opencv_onnx_detector import OpenCvOnnxFaceDetector
+from skynet_local.application.services.unknown_face_enrollment_service import UnknownFaceEnrollmentService
 
 
 def find_project_root(start: Path) -> Path:
@@ -65,13 +66,22 @@ def build_runtime() -> SkynetRuntime:
 
     source = CameraSource(index=settings.source.camera_index)
     detector = build_face_detector(project_root)
-
+    
+    unknown_face_enrollment_service = UnknownFaceEnrollmentService(
+        recognition_service=detector.recognition_service,
+        detector=detector,
+        min_dwell_seconds=2.5,
+        ignore_cooldown_seconds=20.0,
+        min_face_width=120,
+        samples_to_enroll=5,
+    )
     repository = IdentityRepository(settings.storage.sqlite_url)
 
     orchestrator = SceneOrchestrator(
         settings=settings,
         detector=detector,
         repository=repository,
+        unknown_face_enrollment_service=unknown_face_enrollment_service,
     )
 
     guibackend = OpenCvWindowBackend(mode_name=settings.gui.mode)

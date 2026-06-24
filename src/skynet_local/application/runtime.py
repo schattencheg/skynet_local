@@ -11,8 +11,11 @@ class SkynetRuntime:
 
     def run(self) -> None:
         """Consume frames from the source and render the resulting scene."""
+        last_key = None
+
         for frame in self.source.frames():
-            scene = self.orchestrator.handle_frame(frame)
+            scene = self.orchestrator.handle_frame(frame, last_key=last_key)
             self.guibackend.render(scene)
+            last_key = getattr(scene, "last_key", None)
             if scene.should_exit:
                 break

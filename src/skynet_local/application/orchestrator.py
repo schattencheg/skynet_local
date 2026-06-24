@@ -3,19 +3,41 @@
 from skynet_local.domain.entities import IdentityFusionResult, SceneState, SpeakerObservation
 from skynet_local.domain.enums import GuiMode
 from skynet_local.infrastructure.vision.detectors.face_detector_base import FaceDetectorBase
+from skynet_local.application.services.unknown_face_enrollment_service import UnknownFaceEnrollmentService
 
 
 class SceneOrchestrator:
     """Coordinate perception results into a unified scene model."""
 
-    def __init__(self, settings, detector, repository) -> None:
+    def __init__(
+        self,
+        settings,
+        detector,
+        repository,
+        unknown_face_enrollment_service,
+    ):
         self.settings = settings
-        self.detector: FaceDetectorBase = detector
+        self.detector = detector
         self.repository = repository
+        self.unknown_face_enrollment_service: UnknownFaceEnrollmentService = unknown_face_enrollment_service
 
-    def handle_frame(self, frame) -> SceneState:
-        """Process one frame and return the scene state for rendering."""
+    def handle_frame(self, frame, last_key: int | None = None):
         faces = self.detector.detect(frame)
-        speaker = SpeakerObservation(speaker_id=None, label="no-speaker", confidence=0.0, is_owner=False)
-        fusion = IdentityFusionResult(face_id=faces[0].label if faces else None, speaker_id=speaker.speaker_id, fused_id=None, confidence=0.0, conflict=False)
-        return SceneState(frame=frame, faces=faces, speaker=speaker, fusion=fusion, messages=["Skynet runtime active"], gui_mode=GuiMode(self.settings.gui.mode))
+
+        scene = SceneState(
+            frame=frame,
+            faces=faces,
+            should_exit=False,
+        )
+
+        prompt_track_id = self.unknown_face_enrollment_service.update(
+            frame=frame,
+            faces=faces,
+            key=last_key,
+        )
+
+        scene.pending_unknown_track_id = prompt_track_id
+        scene.pending_unknown_prompt = self.unknown_face_enrollment_service.get_prompt_text()
+        scene.last_key = getattr(self, "_last_key", None)
+
+        return scene    

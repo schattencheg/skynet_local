@@ -15,3 +15,6 @@ class SceneState:
     messages: list[str] = field(default_factory=list)
     gui_mode: GuiMode = GuiMode.CLASSIC
     should_exit: bool = False
+    last_key: int | None = None
+    pending_unknown_track_id: str | None = None
+    pending_unknown_prompt: str | None = None

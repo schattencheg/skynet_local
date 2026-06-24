@@ -16,6 +16,9 @@ class OpenCvWindowBackend:
         """Render the active frame with the current mode renderer and show it in a window."""
         frame = self.mode_renderer.render(scene)
         cv2.imshow(self.window_name, frame)
+
         key = cv2.waitKey(1) & 0xFF
+        scene.last_key = None if key == 255 else key
+
         if key == ord("q"):
             scene.should_exit = True

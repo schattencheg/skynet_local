@@ -7,6 +7,7 @@ class FaceDetectorBase:
         self.smooth_alpha = 0.25
         self.expand_ratio = 0.05
         self._smoothed_boxes: dict[str, tuple[float, float, float, float]] = {}
+        self._last_raw_faces_by_track_id: dict[str, object] = {}
 
     def detect(self, frame) -> list[FaceObservation]:
         pass
