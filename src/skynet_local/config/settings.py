@@ -26,6 +26,11 @@ class VisionConfig(BaseModel):
     """Face pipeline backend selection and matching thresholds."""
 
     detector_backend: str = "opencv_onnx"
+    detector_model_path: str = "models/face/detectors/face_detection_yunet_2023mar.onnx"
+    detector_model_path: str = "models/face/detectors/face_detection_yunet_2026may.onnx"
+    detector_score_threshold: float = 0.9
+    detector_nms_threshold: float = 0.3
+    detector_top_k: int = 5000
     recognizer_backend: str = "sface"
     attributes_backend: str = "none"
     pose_backend: str = "landmarks_pnp"
