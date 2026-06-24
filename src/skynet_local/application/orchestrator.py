@@ -8,10 +8,9 @@ from skynet_local.infrastructure.vision.detectors.face_detector_base import Face
 class SceneOrchestrator:
     """Coordinate perception results into a unified scene model."""
 
-    def __init__(self, settings, detector, recognizer, repository) -> None:
+    def __init__(self, settings, detector, repository) -> None:
         self.settings = settings
         self.detector: FaceDetectorBase = detector
-        self.recognizer = recognizer
         self.repository = repository
 
     def handle_frame(self, frame) -> SceneState:

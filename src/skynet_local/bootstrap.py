@@ -71,7 +71,6 @@ def build_runtime() -> SkynetRuntime:
     orchestrator = SceneOrchestrator(
         settings=settings,
         detector=detector,
-        recognizer=None,
         repository=repository,
     )
 
