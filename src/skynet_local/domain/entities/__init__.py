@@ -1,5 +1,6 @@
 """Domain entities describing identities, observations, voice matches and rendered scene state."""
 
+from skynet_local.domain.scene_tracker import SceneTracker, PersonState, SceneEvent, EventKind
 from .observation import FaceObservation, SpeakerObservation
 from .identity import FaceIdentity, FaceSample, IdentityFusionResult
 from .recognition import FaceCandidate, FaceRecognitionResult
@@ -14,5 +15,9 @@ __all__ = [
     "FaceRecognitionResult",
     "SceneState",
     "IdentityFusionResult",
-    "SpeakerObservation"
+    "SpeakerObservation",
+    "SceneTracker",
+    "PersonState",
+    "SceneEvent",
+    "EventKind",
 ]

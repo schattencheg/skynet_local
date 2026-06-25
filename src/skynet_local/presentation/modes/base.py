@@ -3,6 +3,7 @@
 import cv2
 from skynet_local.presentation.animations.focus_animator import FocusAnimator
 from skynet_local.infrastructure.vision.attributes.emotion_analyzer import emotion_to_emoticon
+from skynet_local.presentation.modes.hud_panel import draw_hud_panel
 
 
 class BaseModeRenderer:
@@ -111,5 +112,5 @@ class BaseModeRenderer:
                 (0, 255, 255),
                 2,
             )
-
+        output = draw_hud_panel(output)
         return output

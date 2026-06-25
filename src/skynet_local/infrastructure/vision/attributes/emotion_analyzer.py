@@ -76,6 +76,7 @@ class EmotionAnalyzer:
         self._net: cv2.dnn.Net | None = None
         self._load_failed = False
         self._states: dict[str, _EmotionState] = {}
+        self._last_probs: dict[str, dict[str, float]] = {}   # track_id → {label: prob}
 
     def _load(self) -> bool:
         if self._net is not None:
@@ -101,8 +102,7 @@ class EmotionAnalyzer:
         exp = np.exp(scaled)
         return exp / exp.sum()
 
-    def _infer_emotion(self, crop) -> Optional[str]:
-        """Run ONNX inference on a BGR crop; return winning label or None."""
+    def _infer_emotion(self, crop, track_id: str) -> Optional[str]:
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         resized = cv2.resize(gray, self._INPUT_SIZE)
         blob = cv2.dnn.blobFromImage(resized, 1.0, self._INPUT_SIZE, 0, swapRB=False)
@@ -110,7 +110,11 @@ class EmotionAnalyzer:
         logits = self._net.forward()[0]
         probs = self._softmax_temperature(logits, _TEMPERATURE)
 
-        # Find best label that clears its per-class threshold
+        # Store full distribution for SceneTracker
+        self._last_probs[track_id] = {
+            _FERPLUS_LABELS[i]: float(probs[i]) for i in range(len(_FERPLUS_LABELS))
+        }
+
         order = np.argsort(probs)[::-1]
         for idx in order:
             label = _FERPLUS_LABELS[idx]
@@ -150,34 +154,35 @@ class EmotionAnalyzer:
                 continue
 
             try:
-                detected = self._infer_emotion(crop)
+                detected = self._infer_emotion(crop, face.track_id)
             except Exception:
                 detected = None
 
             if detected:
                 state.vote_buffer.append(detected)
 
-            # Commit only when buffer is full and a majority emotion exists
+            # Commit when buffer full and majority exists
             if len(state.vote_buffer) == self._n_det:
                 counts = Counter(state.vote_buffer)
                 top_emotion, top_count = counts.most_common(1)[0]
                 majority = self._n_det // 2 + 1
                 if top_count >= majority:
                     if top_emotion != state.committed:
-                        # New emotion — reset cooldown
-                        state.committed = top_emotion
-                        state.cooldown_left = self._n_cooldown
+                        if state.cooldown_left == 0:          # ← only switch when cooldown done
+                            state.committed = top_emotion
+                            state.cooldown_left = self._n_cooldown
+                            state.vote_buffer.clear()
+                        # else: still in cooldown — keep old emotion, discard buffer
+                        # (don't clear buffer so votes keep accumulating)
                     else:
-                        # Same emotion — refresh cooldown
+                        # Same emotion confirmed again — refresh cooldown
                         state.cooldown_left = self._n_cooldown
-                    state.vote_buffer.clear()
+                        state.vote_buffer.clear()
 
-            # Tick down cooldown; clear when expired
+            # Tick cooldown — emotion persists until cooldown expires naturally
             if state.cooldown_left > 0:
                 state.cooldown_left -= 1
-            else:
-                state.committed = None
+            # NOTE: do NOT clear state.committed here — keep showing last emotion
 
             face.emotion = state.committed
-
         return faces

@@ -7,6 +7,7 @@ from skynet_local.application.services.unknown_face_enrollment_service import Un
 from skynet_local.application.services.face_recognition_service import FaceRecognitionService
 from skynet_local.infrastructure.vision.attributes.emotion_analyzer import EmotionAnalyzer
 from skynet_local.infrastructure.vision.attributes.chewing_detector import ChewingDetector
+from skynet_local.domain.scene_tracker import SceneTracker
 
 
 class SceneOrchestrator:
@@ -66,5 +67,10 @@ class SceneOrchestrator:
         scene.pending_unknown_track_id = prompt_track_id
         scene.pending_unknown_prompt = self.unknown_face_enrollment_service.get_prompt_text()
         scene.last_key = last_key
+        # Update scene state
+        SceneTracker.instance().update(
+            scene,
+            emotion_probs_by_track=getattr(self._emotion_analyzer, "_last_probs", {}),
+        )
 
         return scene
