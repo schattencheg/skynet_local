@@ -14,6 +14,10 @@ vision:
   detector_top_k: 5
   recognizer_backend: "sface"
   attributes_backend: "none"
+  emotion_model_path: "models/face/attributes/emotion_ferplus_8.onnx"
+  emotion_n_det: 3
+  emotion_n_cooldown: 10
+  emotion_min_prob: 0.23  # (0.23. tune this down if missing emotions)
   pose_backend: "landmarks_pnp"
   detection_interval: 1
   matching_threshold: 0.45

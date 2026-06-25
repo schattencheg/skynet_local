@@ -13,6 +13,8 @@ from skynet_local.infrastructure.storage.face_registry import FileFaceRegistry
 from skynet_local.infrastructure.storage.identity_repository import IdentityRepository
 from skynet_local.infrastructure.vision.detectors.opencv_onnx_detector import OpenCvOnnxFaceDetector
 from skynet_local.application.services.unknown_face_enrollment_service import UnknownFaceEnrollmentService
+from skynet_local.infrastructure.vision.attributes.emotion_analyzer import EmotionAnalyzer
+from skynet_local.infrastructure.vision.attributes.chewing_detector import ChewingDetector
 
 
 def find_project_root(start: Path) -> Path:
@@ -25,7 +27,7 @@ def find_project_root(start: Path) -> Path:
 
 def build_face_detector(project_root: Path) -> OpenCvOnnxFaceDetector:
     models_dir = project_root / "models"
-    yunet_model = str(models_dir / "face" / "detectors" / "face_detection_yunet_2023mar.onnx")
+    yunet_model = str(models_dir / "face" / "detectors" / "face_detection_yunet_2026may.onnx")
     sface_model = str(models_dir / "face" / "recognizers" / "face_recognition_sface_2021dec.onnx")
     registry_dir = project_root / "data" / "faces"
 
@@ -66,7 +68,7 @@ def build_runtime() -> SkynetRuntime:
 
     source = CameraSource(index=settings.source.camera_index)
     detector = build_face_detector(project_root)
-    
+
     unknown_face_enrollment_service = UnknownFaceEnrollmentService(
         recognition_service=detector.recognition_service,
         detector=detector,
@@ -77,12 +79,20 @@ def build_runtime() -> SkynetRuntime:
     )
     repository = IdentityRepository(settings.storage.sqlite_url)
 
+    emotion_model_path = project_root / settings.vision.emotion_model_path
     orchestrator = SceneOrchestrator(
         settings=settings,
         detector=detector,
         repository=repository,
         recognition_service=detector.recognition_service,
         unknown_face_enrollment_service=unknown_face_enrollment_service,
+        emotion_analyzer=EmotionAnalyzer(
+            model_path=emotion_model_path,
+            n_det=settings.vision.emotion_n_det,
+            n_cooldown=settings.vision.emotion_n_cooldown,
+            min_prob=settings.vision.emotion_min_prob,
+        ),
+        chewing_detector=ChewingDetector(),
     )
 
     guibackend = OpenCvWindowBackend(mode_name=settings.gui.mode)

@@ -21,9 +21,16 @@ class TerminatorModeRenderer(BaseModeRenderer):
         y = 70
         if scene.faces:
             face = scene.faces[0]
+            from skynet_local.infrastructure.vision.attributes.emotion_analyzer import emotion_to_emoticon
+            emotion_str = face.emotion or "unknown"
+            emoticon = emotion_to_emoticon(face.emotion)
+            if emoticon:
+                emotion_str = f"{emotion_str} {emoticon}"
+            chew_str = "YES" if getattr(face, "is_chewing", False) else "NO"
             for line in [
                 f"ID: {face.label}",
-                f"EMOTION: {face.emotion or 'unknown'}",
+                f"EMOTION: {emotion_str}",
+                f"CHEWING: {chew_str}",
                 f"AGE: {face.age if face.age is not None else 'n/a'}",
                 f"GENDER: {face.gender or 'n/a'}",
                 f"YAW: {face.yaw if face.yaw is not None else 'n/a'}",

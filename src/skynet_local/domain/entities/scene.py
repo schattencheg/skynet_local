@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass, field
 from skynet_local.domain.enums import GuiMode
 from skynet_local.domain.entities import FaceObservation, SpeakerObservation
@@ -18,3 +19,4 @@ class SceneState:
     last_key: int | None = None
     pending_unknown_track_id: str | None = None
     pending_unknown_prompt: str | None = None
+    bon_appetit_name: Optional[str] = None   # ← add this

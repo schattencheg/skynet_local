@@ -5,6 +5,8 @@ from skynet_local.domain.enums import GuiMode
 from skynet_local.infrastructure.vision.detectors.face_detector_base import FaceDetectorBase
 from skynet_local.application.services.unknown_face_enrollment_service import UnknownFaceEnrollmentService
 from skynet_local.application.services.face_recognition_service import FaceRecognitionService
+from skynet_local.infrastructure.vision.attributes.emotion_analyzer import EmotionAnalyzer
+from skynet_local.infrastructure.vision.attributes.chewing_detector import ChewingDetector
 
 
 class SceneOrchestrator:
@@ -17,20 +19,42 @@ class SceneOrchestrator:
         repository,
         recognition_service,
         unknown_face_enrollment_service,
+        emotion_analyzer: EmotionAnalyzer | None = None,
+        chewing_detector: ChewingDetector | None = None,
     ):
         self.settings = settings
         self.detector = detector
         self.repository = repository
         self.recognition_service = recognition_service
         self.unknown_face_enrollment_service: UnknownFaceEnrollmentService = unknown_face_enrollment_service
+        self._emotion_analyzer = emotion_analyzer or EmotionAnalyzer(model_path="")
+        self._chewing_detector = chewing_detector or ChewingDetector()
 
     def handle_frame(self, frame, last_key: int | None = None):
         faces = self.detector.detect(frame)
+
+        faces = self._emotion_analyzer.analyze(frame, faces)
+
+        raw_rows = {}
+        if hasattr(self.detector, "get_raw_face_row"):
+            for f in faces:
+                row = self.detector.get_raw_face_row(f.track_id)
+                if row is not None:
+                    raw_rows[f.track_id] = row
+        faces = self._chewing_detector.analyze(frame, faces, raw_face_rows=raw_rows)
+
+        # Collect "Bon appétit!" event — pick first person eating (usually only one)
+        bon_appetit_name: str | None = None
+        for f in faces:
+            if getattr(f, "eating_event", False):
+                bon_appetit_name = f.label
+                break
 
         scene = SceneState(
             frame=frame,
             faces=faces,
             should_exit=False,
+            bon_appetit_name=bon_appetit_name,
         )
 
         prompt_track_id = self.unknown_face_enrollment_service.update(
@@ -43,4 +67,4 @@ class SceneOrchestrator:
         scene.pending_unknown_prompt = self.unknown_face_enrollment_service.get_prompt_text()
         scene.last_key = last_key
 
-        return scene    
+        return scene
