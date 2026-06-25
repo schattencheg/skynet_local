@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -9,13 +10,25 @@ import numpy as np
 
 from skynet_local.domain.entities import FaceCandidate, FaceIdentity, FaceSample
 
+logger = logging.getLogger(__name__)
+
 
 class FileFaceRegistry:
-    def __init__(self, base_dir: str | Path) -> None:
+    def __init__(
+        self,
+        base_dir: str | Path,
+        max_samples_per_identity: int = 20,
+        autosave_every: int = 5,
+    ) -> None:
         self.base_dir = Path(base_dir)
         self.registry_file = self.base_dir / "registry.json"
         self.embeddings_dir = self.base_dir / "embeddings"
         self._identities: dict[str, FaceIdentity] = {}
+        self.max_samples_per_identity = max_samples_per_identity
+        self._autosave_every = autosave_every      # save every N new samples
+        self._samples_since_save: int = 0
+
+    # ── load / save ──────────────────────────────────────────────────────────
 
     def load(self) -> None:
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -38,11 +51,11 @@ class FileFaceRegistry:
             if npz_path.exists():
                 data = np.load(npz_path, allow_pickle=True)
 
-                embeddings = data["embeddings"] if "embeddings" in data else np.array([])
-                qualities = data["qualities"] if "qualities" in data else np.array([])
-                sample_ids = data["sample_ids"] if "sample_ids" in data else np.array([], dtype=object)
+                embeddings  = data["embeddings"]  if "embeddings"  in data else np.array([])
+                qualities   = data["qualities"]   if "qualities"   in data else np.array([])
+                sample_ids  = data["sample_ids"]  if "sample_ids"  in data else np.array([], dtype=object)
                 created_ats = data["created_ats"] if "created_ats" in data else np.array([], dtype=object)
-                prototype_raw = data["prototype"] if "prototype" in data else np.array([])
+                prototype_raw = data["prototype"] if "prototype"   in data else np.array([])
 
                 prototype = prototype_raw if prototype_raw.size else None
 
@@ -96,6 +109,10 @@ class FileFaceRegistry:
             json.dumps({"version": 1, "people": people}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        self._samples_since_save = 0
+        logger.debug("Registry saved (%d identities)", len(self._identities))
+
+    # ── identity CRUD ─────────────────────────────────────────────────────────
 
     def add_identity(self, person_id: str, display_name: str) -> FaceIdentity:
         if person_id in self._identities:
@@ -117,6 +134,8 @@ class FileFaceRegistry:
     def list_identities(self) -> list[FaceIdentity]:
         return list(self._identities.values())
 
+    # ── samples ───────────────────────────────────────────────────────────────
+
     def add_sample(
         self,
         person_id: str,
@@ -134,9 +153,75 @@ class FileFaceRegistry:
             created_at=datetime.utcnow(),
         )
         identity.samples.append(sample)
+
+        # Prune: keep only max_samples_per_identity highest-quality samples
+        if len(identity.samples) > self.max_samples_per_identity:
+            identity.samples.sort(key=lambda s: s.quality, reverse=True)
+            dropped = len(identity.samples) - self.max_samples_per_identity
+            identity.samples = identity.samples[: self.max_samples_per_identity]
+            logger.debug("Pruned %d low-quality sample(s) for %s", dropped, person_id)
+
         identity.prototype = self._build_prototype(identity.samples)
         identity.updated_at = datetime.utcnow()
+
+        # ── autosave: flush to disk every N new samples ───────────────────────
+        self._samples_since_save += 1
+        if self._samples_since_save >= self._autosave_every:
+            self.save()
+            logger.info(
+                "Autosave: %s now has %d samples",
+                person_id,
+                len(identity.samples),
+            )
+
         return sample
+
+    def try_adaptive_update(
+        self,
+        person_id: str,
+        embedding: np.ndarray,
+        quality: float,
+        score: float,
+        second_score: float | None,
+        *,
+        auto_update_threshold: float = 0.50,
+        min_margin: float = 0.08,
+        min_quality_area: float = 14_400.0,
+    ) -> bool:
+        """Conditionally add a new sample for an already-recognised identity.
+
+        Guards (ALL must pass):
+          - score >= auto_update_threshold
+          - gap best-second >= min_margin  (not ambiguous)
+          - quality >= min_quality_area    (face is large enough: ~120×120 px)
+          - new sample is better than the worst stored sample (or room remains)
+        """
+        if score < auto_update_threshold:
+            return False
+        if second_score is not None and (score - second_score) < min_margin:
+            return False
+        if quality < min_quality_area:
+            return False
+
+        identity = self.get_identity(person_id)
+        if identity is None:
+            return False
+
+        if (
+            identity.samples
+            and len(identity.samples) >= self.max_samples_per_identity
+        ):
+            worst_quality = min(s.quality for s in identity.samples)
+            if quality <= worst_quality:
+                return False
+
+        self.add_sample(person_id=person_id, embedding=embedding, quality=quality)
+        log_message = f"Adaptive update accepted: {person_id}  score={score:.3f}  quality={quality:.0f}",
+        logger.info(log_message)
+        print(log_message)
+        return True
+
+    # ── search ────────────────────────────────────────────────────────────────
 
     def find_top_candidates(
         self,
@@ -161,11 +246,16 @@ class FileFaceRegistry:
         candidates.sort(key=lambda x: x.score, reverse=True)
         return candidates[:limit]
 
+    # ── helpers ───────────────────────────────────────────────────────────────
+
     def _build_prototype(self, samples: list[FaceSample]) -> np.ndarray | None:
         if not samples:
             return None
+        # Quality-weighted mean: better-quality samples contribute more
+        weights = np.array([s.quality for s in samples], dtype=np.float32)
+        weights = weights / weights.sum()
         matrix = np.stack([self._normalize(s.embedding) for s in samples], axis=0)
-        proto = matrix.mean(axis=0)
+        proto = (matrix * weights[:, None]).sum(axis=0)
         return self._normalize(proto)
 
     @staticmethod

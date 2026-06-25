@@ -81,6 +81,7 @@ def build_runtime() -> SkynetRuntime:
         settings=settings,
         detector=detector,
         repository=repository,
+        recognition_service=detector.recognition_service,
         unknown_face_enrollment_service=unknown_face_enrollment_service,
     )
 
