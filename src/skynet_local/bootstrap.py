@@ -13,8 +13,14 @@ from skynet_local.infrastructure.storage.face_registry import FileFaceRegistry
 from skynet_local.infrastructure.storage.identity_repository import IdentityRepository
 from skynet_local.infrastructure.vision.detectors.opencv_onnx_detector import OpenCvOnnxFaceDetector
 from skynet_local.application.services.unknown_face_enrollment_service import UnknownFaceEnrollmentService
-from skynet_local.infrastructure.vision.attributes.emotion_analyzer import EmotionAnalyzer
-from skynet_local.infrastructure.vision.attributes.chewing_detector import ChewingDetector
+from skynet_local.infrastructure.vision.attributes import EmotionAnalyzer
+from skynet_local.infrastructure.vision.attributes import LandmarkEmotionDetector
+from skynet_local.infrastructure.vision.attributes import EnsembleEmotionDetector
+from skynet_local.infrastructure.vision.attributes import ChewingDetector
+from skynet_local.infrastructure.vision.attributes import FerplusEmotionDetector
+from skynet_local.infrastructure.vision.attributes import FerplusEmotionDetectorCalibrated
+
+
 
 
 def find_project_root(start: Path) -> Path:
@@ -87,10 +93,12 @@ def build_runtime() -> SkynetRuntime:
         recognition_service=detector.recognition_service,
         unknown_face_enrollment_service=unknown_face_enrollment_service,
         emotion_analyzer=EmotionAnalyzer(
-            model_path=emotion_model_path,
+            detector=EnsembleEmotionDetector([
+                (FerplusEmotionDetectorCalibrated(emotion_model_path, min_prob=settings.vision.emotion_min_prob), 0.65),
+                (LandmarkEmotionDetector(), 0.35),
+            ]),
             n_det=settings.vision.emotion_n_det,
             n_cooldown=settings.vision.emotion_n_cooldown,
-            min_prob=settings.vision.emotion_min_prob,
         ),
         chewing_detector=ChewingDetector(),
     )

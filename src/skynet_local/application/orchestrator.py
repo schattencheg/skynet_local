@@ -34,17 +34,21 @@ class SceneOrchestrator:
     def handle_frame(self, frame, last_key: int | None = None):
         faces = self.detector.detect(frame)
 
-        faces = self._emotion_analyzer.analyze(frame, faces)
-
+        # Build raw landmark rows first
         raw_rows = {}
         if hasattr(self.detector, "get_raw_face_row"):
             for f in faces:
                 row = self.detector.get_raw_face_row(f.track_id)
                 if row is not None:
                     raw_rows[f.track_id] = row
-        faces = self._chewing_detector.analyze(frame, faces, raw_face_rows=raw_rows)
 
-        # Collect "Bon appétit!" event — pick first person eating (usually only one)
+        # Feed landmarks to any landmark-aware emotion backend
+        if hasattr(self._emotion_analyzer._detector, "set_landmarks"):
+            for f in faces:
+                self._emotion_analyzer._detector.set_landmarks(f.track_id, raw_rows.get(f.track_id))
+
+        faces = self._emotion_analyzer.analyze(frame, faces)
+        faces = self._chewing_detector.analyze(frame, faces, raw_face_rows=raw_rows)        # Collect "Bon appétit!" event — pick first person eating (usually only one)
         bon_appetit_name: str | None = None
         for f in faces:
             if getattr(f, "eating_event", False):

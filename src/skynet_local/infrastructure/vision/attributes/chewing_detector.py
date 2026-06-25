@@ -128,4 +128,5 @@ class ChewingDetector:
         x1, y1, x2, y2 = face.bbox
         bw = max(x2 - x1, 1)
         bh = max(y2 - y1, 1)
-        return (bh * 0.15) / bw
+        return None
+        return (bh * 0.15) / bw # Fake MAR
