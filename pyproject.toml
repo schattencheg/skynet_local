@@ -43,3 +43,8 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.vulture]
+paths = ["."]  # Указывает анализировать весь текущий каталог
+min_confidence = 80
+sort_by_size = true

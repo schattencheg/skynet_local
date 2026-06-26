@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from time import monotonic
-from typing import Any
 
 import numpy as np
 
 from skynet_local.domain.entities import FaceObservation
+from skynet_local.application.ports.face_recognizer import FaceRecognizerPort
+from skynet_local.infrastructure.vision.detectors.face_detector_base import FaceDetectorBase
 
 
 class UnknownTrackState(str, Enum):
@@ -20,8 +21,8 @@ class UnknownTrackState(str, Enum):
 
 @dataclass
 class UnknownTrackSample:
-    frame: object
-    face_row: object
+    frame: np.ndarray
+    face_row: np.ndarray
     quality: float
 
 
@@ -39,8 +40,8 @@ class UnknownTrackSession:
 
 
 class UnknownFaceEnrollmentService:
-    recognition_service: Any
-    detector: Any
+    recognition_service: FaceRecognizerPort
+    detector: FaceDetectorBase
     min_dwell_seconds: float
     ignore_cooldown_seconds: float
     min_face_width: int
@@ -51,8 +52,8 @@ class UnknownFaceEnrollmentService:
 
     def __init__(
         self,
-        recognition_service: Any,
-        detector: Any,
+        recognition_service: FaceRecognizerPort,
+        detector: FaceDetectorBase,
         min_dwell_seconds: float = 2.5,
         ignore_cooldown_seconds: float = 20.0,
         min_face_width: int = 120,
@@ -68,7 +69,12 @@ class UnknownFaceEnrollmentService:
         self.pending_prompt_track_id: str | None = None
         self._person_seq: int = 1
 
-    def update(self, frame: np.ndarray, faces: list[FaceObservation], key: int | None = None) -> str | None:
+    def update(
+        self,
+        frame: np.ndarray,
+        faces: list[FaceObservation],
+        key: int | None = None,
+    ) -> str | None:
         now = monotonic()
         active_ids: set[str] = set()
         self.pending_prompt_track_id = None
@@ -127,7 +133,9 @@ class UnknownFaceEnrollmentService:
                 session.samples.append(
                     UnknownTrackSample(
                         frame=frame.copy(),
-                        face_row=raw_face_row.copy() if hasattr(raw_face_row, "copy") else raw_face_row,
+                        face_row=raw_face_row.copy()
+                        if hasattr(raw_face_row, "copy")
+                        else np.array(raw_face_row),
                         quality=quality,
                     )
                 )
@@ -140,8 +148,11 @@ class UnknownFaceEnrollmentService:
 
         stale_ids = set(self.sessions.keys()) - active_ids
         for stale_id in stale_ids:
-            session = self.sessions[stale_id]
-            if session.state not in {UnknownTrackState.IGNORED, UnknownTrackState.ENROLLED}:
+            stale_session = self.sessions[stale_id]
+            if stale_session.state not in {
+                UnknownTrackState.IGNORED,
+                UnknownTrackState.ENROLLED,
+            }:
                 del self.sessions[stale_id]
 
         return self.pending_prompt_track_id
@@ -154,7 +165,6 @@ class UnknownFaceEnrollmentService:
     def _finalize_enrollment(self, session: UnknownTrackSession) -> None:
         if not session.auto_person_id or not session.auto_display_name:
             return
-
         for sample in session.samples:
             self.recognition_service.enroll_detection(
                 person_id=session.auto_person_id,

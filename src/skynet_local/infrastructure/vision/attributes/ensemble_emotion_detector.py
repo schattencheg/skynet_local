@@ -1,23 +1,24 @@
 """Ensemble detector: weighted average over multiple EmotionDetectorBase backends."""
 
 from __future__ import annotations
+
 import numpy as np
+
 from skynet_local.infrastructure.vision.attributes.emotion_detector_base import EmotionDetectorBase
 
 
 class EnsembleEmotionDetector(EmotionDetectorBase):
-    """Combine N detectors with per-detector weights.
+    """Combine N detectors with per-detector weights."""
 
-    Usage:
-        det = EnsembleEmotionDetector([
-            (FerplusEmotionDetector(path), 0.7),
-            (LandmarkEmotionDetector(),    0.3),
-        ])
-    """
+    _detectors: list[tuple[EmotionDetectorBase, float]]
+    _labels: list[str]
 
-    def __init__(self, detectors: list[tuple[EmotionDetectorBase, float]]) -> None:
+    def __init__(
+        self, detectors: list[tuple[EmotionDetectorBase, float]]
+    ) -> None:
         self._detectors = detectors
-        seen, all_labels = set(), []
+        seen: set[str] = set()
+        all_labels: list[str] = []
         for det, _ in detectors:
             for lbl in det.labels:
                 if lbl not in seen:
@@ -29,15 +30,15 @@ class EnsembleEmotionDetector(EmotionDetectorBase):
     def labels(self) -> list[str]:
         return list(self._labels)
 
-    def set_landmarks(self, track_id: str, raw_row) -> None:
+    def set_landmarks(self, track_id: str, raw_row: np.ndarray | None) -> None:
         """Forward landmark rows to any backend that accepts them."""
         for det, _ in self._detectors:
             if hasattr(det, "set_landmarks"):
-                det.set_landmarks(track_id, raw_row)
+                det.set_landmarks(track_id, raw_row)  # type: ignore[union-attr]
 
     def infer(self, crop: np.ndarray, track_id: str) -> dict[str, float]:
-        combined = {l: 0.0 for l in self._labels}
-        total_w  = 0.0
+        combined: dict[str, float] = {lbl: 0.0 for lbl in self._labels}
+        total_w: float = 0.0
 
         for det, w in self._detectors:
             result = det.infer(crop, track_id)

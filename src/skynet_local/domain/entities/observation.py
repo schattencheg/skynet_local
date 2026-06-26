@@ -1,8 +1,10 @@
 """Domain entities for a single observation / detected entity in a frame."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
+
+import numpy as np
 
 from skynet_local.domain.enums import FaceCategory
 
@@ -13,19 +15,19 @@ class FaceObservation:
     bbox: tuple[int, int, int, int]
     confidence: float
     label: str = "unknown"
-    embedding: Optional[object] = None
-    emotion: Optional[str] = None
+    embedding: np.ndarray | None = None
+    emotion: str | None = None
     is_chewing: bool = False
-    eating_event: bool = False        # True for one frame when 20-s chewing sustained
-    category: Optional[str] = None
-    prompt: Optional[str] = None
+    eating_event: bool = False
+    category: str | None = None
+    prompt: str | None = None
 
 
 @dataclass
 class SpeakerObservation:
     """Identified speaker segment from voice pipeline."""
 
-    speaker_id: str
+    speaker_id: str | None
     confidence: float
     text: str = ""
 
@@ -44,11 +46,11 @@ class IdentityFusionResult:
 class SceneState:
     """Snapshot of all observations for a single frame."""
 
-    frame: object
+    frame: np.ndarray | None
     faces: list[FaceObservation] = field(default_factory=list)
-    speaker: Optional[SpeakerObservation] = None
+    speaker: SpeakerObservation | None = None
     should_exit: bool = False
-    pending_unknown_track_id: Optional[str] = None
-    pending_unknown_prompt: Optional[str] = None
-    last_key: Optional[int] = None
-    bon_appetit_name: Optional[str] = None   # set by orchestrator when event fires
+    pending_unknown_track_id: str | None = None
+    pending_unknown_prompt: str | None = None
+    last_key: int | None = None
+    bon_appetit_name: str | None = None

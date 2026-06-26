@@ -19,14 +19,14 @@ class FaceSample:
 class FaceIdentity:
     person_id: str
     display_name: str
-    samples: list[FaceSample] = field(default_factory=list)
+    samples: list[FaceSample] = field(default_factory=list[FaceSample])
     prototype: np.ndarray | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     def add_sample(self, sample: FaceSample) -> None:
         self.samples.append(sample)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now()
 
     @property
     def sample_count(self) -> int:

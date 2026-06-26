@@ -11,7 +11,7 @@ class CooldownService:
 
     def allowed(self, key: str, cooldown_seconds: int, now: datetime | None = None) -> bool:
         """Return true when the cooldown window has expired for the given key."""
-        now = now or datetime.utcnow()
+        now = now or datetime.now()
         last = self._state.get(key)
         if last is None or now - last >= timedelta(seconds=cooldown_seconds):
             self._state[key] = now

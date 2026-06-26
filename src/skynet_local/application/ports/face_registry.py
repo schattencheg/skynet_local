@@ -24,8 +24,6 @@ class FaceRegistryPort(Protocol):
         person_id: str,
         embedding: np.ndarray,
         quality: float,
-        source: str | None = None,
-        image_path: str | None = None,
     ) -> FaceSample: ...
 
     def rebuild_prototype(self, person_id: str) -> None: ...

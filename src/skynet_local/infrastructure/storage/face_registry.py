@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-
+from typing import Any
 import numpy as np
 
 from skynet_local.domain.entities import FaceCandidate, FaceIdentity, FaceSample
@@ -53,7 +53,7 @@ class FileFaceRegistry:
             person_id = person["person_id"]
             npz_path = self.embeddings_dir / f"{person_id}.npz"
 
-            samples = []
+            samples: list[FaceSample] = []
             prototype = None
 
             if npz_path.exists():
@@ -92,7 +92,7 @@ class FileFaceRegistry:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.embeddings_dir.mkdir(parents=True, exist_ok=True)
 
-        people = []
+        people: list[dict[str, Any]] = []
         for identity in self._identities.values():
             people.append(
                 {
@@ -126,7 +126,7 @@ class FileFaceRegistry:
         if person_id in self._identities:
             return self._identities[person_id]
 
-        now = datetime.utcnow()
+        now = datetime.now()
         identity = FaceIdentity(
             person_id=person_id,
             display_name=display_name,
@@ -141,6 +141,17 @@ class FileFaceRegistry:
 
     def list_identities(self) -> list[FaceIdentity]:
         return list(self._identities.values())
+
+    def remove_identity(self, person_id: str) -> None:
+        self._identities.pop(person_id, None)
+        npz_path = self.embeddings_dir / f"{person_id}.npz"
+        if npz_path.exists():
+            npz_path.unlink()
+
+    def rebuild_prototype(self, person_id: str) -> None:
+        identity = self.get_identity(person_id)
+        if identity is not None:
+            identity.prototype = self._build_prototype(identity.samples)
 
     # ── samples ───────────────────────────────────────────────────────────────
 
@@ -158,7 +169,7 @@ class FileFaceRegistry:
             sample_id=str(uuid.uuid4()),
             embedding=self._normalize(embedding),
             quality=quality,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
         )
         identity.samples.append(sample)
 
@@ -170,7 +181,7 @@ class FileFaceRegistry:
             logger.debug("Pruned %d low-quality sample(s) for %s", dropped, person_id)
 
         identity.prototype = self._build_prototype(identity.samples)
-        identity.updated_at = datetime.utcnow()
+        identity.updated_at = datetime.now()
 
         # ── autosave: flush to disk every N new samples ───────────────────────
         self._samples_since_save += 1
@@ -237,7 +248,7 @@ class FileFaceRegistry:
         limit: int = 3,
     ) -> list[FaceCandidate]:
         query = self._normalize(embedding)
-        candidates = []
+        candidates: list[FaceCandidate] = []
 
         for identity in self._identities.values():
             if identity.prototype is None:

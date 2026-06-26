@@ -4,7 +4,7 @@ from skynet_local.domain.entities import FaceObservation
 from skynet_local.domain.enums import FaceCategory
 
 
-class OpenCvOnnxFaceDetectorStub:
+class OpenCvOnnxFaceDetectorStub(FaceDetectorBase):
     """Return placeholder face detections until a real ONNX model is connected."""
 
     def detect(self, frame) -> list[FaceObservation]:

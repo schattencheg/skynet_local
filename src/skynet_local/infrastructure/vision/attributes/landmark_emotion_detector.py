@@ -1,11 +1,9 @@
-"""Landmark-based emotion estimator using YuNet mouth/eye geometry.
-
-No ONNX model required. Combine with FerplusEmotionDetector via
-EnsembleEmotionDetector for better accuracy.
-"""
+"""Landmark-based emotion estimator using YuNet mouth/eye geometry."""
 
 from __future__ import annotations
+
 import numpy as np
+
 from skynet_local.infrastructure.vision.attributes.emotion_detector_base import EmotionDetectorBase
 
 _LABELS = [
@@ -15,32 +13,30 @@ _LABELS = [
 
 
 class LandmarkEmotionDetector(EmotionDetectorBase):
-    """Geometry-based emotion estimator -- no model file needed.
+    """Geometry-based emotion estimator -- no model file needed."""
 
-    Call set_landmarks(track_id, raw_yunet_row) each frame before analyze().
-    """
+    _rows: dict[str, np.ndarray]
 
     def __init__(self) -> None:
-        self._rows: dict[str, list] = {}
+        self._rows: dict[str, np.ndarray] = {}
 
     @property
     def labels(self) -> list[str]:
         return list(_LABELS)
 
-    def set_landmarks(self, track_id: str, raw_row) -> None:
+    def set_landmarks(self, track_id: str, raw_row: np.ndarray | None) -> None:
         if raw_row is not None:
-            self._rows[track_id] = raw_row
+            self._rows[track_id] = np.asarray(raw_row)
 
     def infer(self, crop: np.ndarray, track_id: str) -> dict[str, float]:
         row = self._rows.get(track_id)
-        probs = {l: 0.0 for l in _LABELS}
+        probs: dict[str, float] = {lbl: 0.0 for lbl in _LABELS}
 
         if row is None or len(row) < 14:
             probs["neutral"] = 1.0
             return probs
 
         try:
-            # YuNet landmark cols: re=4,5  le=6,7  nose=8,9  mr=10,11  ml=12,13
             re  = (float(row[4]),  float(row[5]))
             le  = (float(row[6]),  float(row[7]))
             mr  = (float(row[10]), float(row[11]))
@@ -58,11 +54,11 @@ class LandmarkEmotionDetector(EmotionDetectorBase):
             happy_score    = float(np.clip((mouth_width_norm - 0.6) * 2.5, 0, 1))
             sad_score      = float(np.clip((0.12 - mar) * 8.0, 0, 1))
             sad_score      = max(sad_score, float(np.clip((0.55 - mouth_width_norm) * 3.0, 0, 1)))
-            surprise_score = float(np.clip(mar * 6.0, 0, 1) * 0.5 +
-                                   np.clip(ear * 4.0, 0, 1) * 0.5)
+            surprise_score = float(np.clip(mar * 6.0, 0, 1) * 0.5
+                                   + np.clip(ear * 4.0, 0, 1) * 0.5)
             anger_score    = float(np.clip(ear * 3.0, 0, 0.6))
 
-            raw = {
+            raw: dict[str, float] = {
                 "happiness": happy_score,
                 "sadness":   sad_score,
                 "surprise":  surprise_score,

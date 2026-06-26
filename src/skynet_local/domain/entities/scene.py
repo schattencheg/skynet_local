@@ -1,15 +1,22 @@
-from typing import Optional
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+
+import numpy as np
+
 from skynet_local.domain.enums import GuiMode
-from skynet_local.domain.entities import FaceObservation, SpeakerObservation
-from skynet_local.domain.entities import IdentityFusionResult
+from skynet_local.domain.entities.observation import (
+    FaceObservation,
+    SpeakerObservation,
+    IdentityFusionResult,
+)
 
 
 @dataclass(slots=True)
 class SceneState:
     """Complete scene model consumed by GUI backends and presentation modes."""
 
-    frame: object | None = None
+    frame: np.ndarray | None = None
     faces: list[FaceObservation] = field(default_factory=list)
     speaker: SpeakerObservation | None = None
     fusion: IdentityFusionResult | None = None
@@ -19,4 +26,4 @@ class SceneState:
     last_key: int | None = None
     pending_unknown_track_id: str | None = None
     pending_unknown_prompt: str | None = None
-    bon_appetit_name: Optional[str] = None   # ← add this
+    bon_appetit_name: str | None = None

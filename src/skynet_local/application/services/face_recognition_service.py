@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
-
+import cv2
 import numpy as np
 
 from skynet_local.domain.entities import FaceRecognitionResult
+from skynet_local.application.ports.face_registry import FaceRegistryPort
 from skynet_local.application.services.cooldown_service import CooldownService
 
 
 class FaceRecognitionService:
-    registry: Any
-    recognizer_sf: Any
+    registry: FaceRegistryPort
+    recognizer_sf: cv2.FaceRecognizerSF
     match_threshold: float
     ambiguity_margin: float
     auto_update_threshold: float
@@ -19,8 +19,8 @@ class FaceRecognitionService:
 
     def __init__(
         self,
-        registry: Any,
-        recognizer_sf: Any,
+        registry: FaceRegistryPort,
+        recognizer_sf: cv2.FaceRecognizerSF,
         match_threshold: float = 0.363,
         ambiguity_margin: float = 0.04,
         auto_update_threshold: float = 0.50,
@@ -35,33 +35,35 @@ class FaceRecognitionService:
         self._update_cooldown = CooldownService()
 
     def align_face(self, frame: np.ndarray, face_row: np.ndarray) -> np.ndarray:
-        return self.recognizer_sf.alignCrop(frame, face_row)
+        return self.recognizer_sf.alignCrop(frame, face_row)  # type: ignore[return-value]
 
     def extract_embedding(self, aligned_face: np.ndarray) -> np.ndarray:
-        embedding = self.recognizer_sf.feature(aligned_face)
+        embedding: np.ndarray = self.recognizer_sf.feature(aligned_face)
         return self._normalize_embedding(embedding)
 
-    def recognize_detection(self, frame: np.ndarray, face_row: np.ndarray) -> FaceRecognitionResult:
+    def recognize_detection(
+        self, frame: np.ndarray, face_row: np.ndarray
+    ) -> FaceRecognitionResult:
         aligned_face = self.align_face(frame, face_row)
         embedding = self.extract_embedding(aligned_face)
 
         candidates = self.registry.find_top_candidates(embedding, limit=2)
         if not candidates:
             return FaceRecognitionResult(
-                person_id=None, display_name=None, score=0.0, is_match=False,
+                person_id=None, display_name=None, score=0.0, is_match=False
             )
 
-        best   = candidates[0]
+        best = candidates[0]
         second = candidates[1] if len(candidates) > 1 else None
 
         if best.score < self.match_threshold:
             return FaceRecognitionResult(
-                person_id=None, display_name=None, score=best.score, is_match=False,
+                person_id=None, display_name=None, score=best.score, is_match=False
             )
 
         if second and (best.score - second.score) < self.ambiguity_margin:
             return FaceRecognitionResult(
-                person_id=None, display_name=None, score=best.score, is_match=False,
+                person_id=None, display_name=None, score=best.score, is_match=False
             )
 
         result = FaceRecognitionResult(
@@ -71,18 +73,17 @@ class FaceRecognitionService:
             is_match=True,
         )
 
-        # ── Adaptive template update, gated by per-identity cooldown ──────────
         if self._update_cooldown.allowed(
             key=best.person_id,
             cooldown_seconds=self.auto_update_cooldown_seconds,
         ):
-            second_score = second.score if second else None
+            second_score: float | None = second.score if second else None
             try:
-                quality = float(face_row[2]) * float(face_row[3])   # w * h
+                quality = float(face_row[2]) * float(face_row[3])
             except (TypeError, IndexError):
                 quality = 0.0
 
-            self.registry.try_adaptive_update(
+            self.registry.try_adaptive_update(  # type: ignore[attr-defined]
                 person_id=best.person_id,
                 embedding=embedding,
                 quality=quality,
@@ -111,10 +112,10 @@ class FaceRecognitionService:
             embedding=embedding,
             quality=quality,
         )
-        self.registry.save()   # always force-save after manual enroll
+        self.registry.save()
 
     @staticmethod
     def _normalize_embedding(vec: np.ndarray) -> np.ndarray:
         arr = np.asarray(vec, dtype=np.float32).reshape(-1)
-        norm = np.linalg.norm(arr)
-        return arr if norm == 0 else arr / norm
+        norm = float(np.linalg.norm(arr))
+        return arr if norm == 0.0 else arr / norm
