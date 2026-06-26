@@ -14,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class FileFaceRegistry:
+    base_dir: Path
+    registry_file: Path
+    embeddings_dir: Path
+    _identities: dict[str, FaceIdentity]
+    max_samples_per_identity: int
+    _autosave_every: int
+    _samples_since_save: int
+
     def __init__(
         self,
         base_dir: str | Path,

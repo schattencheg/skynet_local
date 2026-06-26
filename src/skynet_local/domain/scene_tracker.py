@@ -10,7 +10,10 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from skynet_local.domain.entities.scene import SceneState
 
 
 # ── Event types ──────────────────────────────────────────────────────────────
@@ -89,7 +92,7 @@ class SceneTracker:
     # ------------------------------------------------------------------
     def update(
         self,
-        scene,
+        scene: SceneState,
         emotion_probs_by_track: dict[str, dict[str, float]] | None = None,
     ) -> None:
         """Called by orchestrator every frame with the latest SceneState.

@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from time import monotonic
+from typing import Any
+
+import numpy as np
+
+from skynet_local.domain.entities import FaceObservation
 
 
 class UnknownTrackState(str, Enum):
@@ -34,10 +39,20 @@ class UnknownTrackSession:
 
 
 class UnknownFaceEnrollmentService:
+    recognition_service: Any
+    detector: Any
+    min_dwell_seconds: float
+    ignore_cooldown_seconds: float
+    min_face_width: int
+    samples_to_enroll: int
+    sessions: dict[str, UnknownTrackSession]
+    pending_prompt_track_id: str | None
+    _person_seq: int
+
     def __init__(
         self,
-        recognition_service,
-        detector,
+        recognition_service: Any,
+        detector: Any,
         min_dwell_seconds: float = 2.5,
         ignore_cooldown_seconds: float = 20.0,
         min_face_width: int = 120,
@@ -51,11 +66,11 @@ class UnknownFaceEnrollmentService:
         self.samples_to_enroll = samples_to_enroll
         self.sessions: dict[str, UnknownTrackSession] = {}
         self.pending_prompt_track_id: str | None = None
-        self._person_seq = 1
+        self._person_seq: int = 1
 
-    def update(self, frame, faces, key: int | None = None) -> str | None:
+    def update(self, frame: np.ndarray, faces: list[FaceObservation], key: int | None = None) -> str | None:
         now = monotonic()
-        active_ids = set()
+        active_ids: set[str] = set()
         self.pending_prompt_track_id = None
 
         for face in faces:
@@ -155,7 +170,7 @@ class UnknownFaceEnrollmentService:
         return person_id
 
     @staticmethod
-    def _estimate_quality(face) -> float:
+    def _estimate_quality(face: FaceObservation) -> float:
         x1, y1, x2, y2 = face.bbox
         area = max(1, (x2 - x1) * (y2 - y1))
         return float(area)

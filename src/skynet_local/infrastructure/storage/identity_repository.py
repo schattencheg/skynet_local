@@ -6,6 +6,9 @@ from pathlib import Path
 class IdentityRepository:
     """Store and retrieve registered identities and embeddings from SQLite."""
 
+    sqlite_url: str
+    db_path: Path
+
     def __init__(self, sqlite_url: str) -> None:
         self.sqlite_url = sqlite_url
         self.db_path = Path(sqlite_url.replace("sqlite:///", ""))

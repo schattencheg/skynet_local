@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from skynet_local.domain.entities import FaceRecognitionResult
@@ -7,10 +9,18 @@ from skynet_local.application.services.cooldown_service import CooldownService
 
 
 class FaceRecognitionService:
+    registry: Any
+    recognizer_sf: Any
+    match_threshold: float
+    ambiguity_margin: float
+    auto_update_threshold: float
+    auto_update_cooldown_seconds: int
+    _update_cooldown: CooldownService
+
     def __init__(
         self,
-        registry,
-        recognizer_sf,
+        registry: Any,
+        recognizer_sf: Any,
         match_threshold: float = 0.363,
         ambiguity_margin: float = 0.04,
         auto_update_threshold: float = 0.50,
@@ -24,14 +34,14 @@ class FaceRecognitionService:
         self.auto_update_cooldown_seconds = auto_update_cooldown_seconds
         self._update_cooldown = CooldownService()
 
-    def align_face(self, frame, face_row):
+    def align_face(self, frame: np.ndarray, face_row: np.ndarray) -> np.ndarray:
         return self.recognizer_sf.alignCrop(frame, face_row)
 
-    def extract_embedding(self, aligned_face) -> np.ndarray:
+    def extract_embedding(self, aligned_face: np.ndarray) -> np.ndarray:
         embedding = self.recognizer_sf.feature(aligned_face)
         return self._normalize_embedding(embedding)
 
-    def recognize_detection(self, frame, face_row) -> FaceRecognitionResult:
+    def recognize_detection(self, frame: np.ndarray, face_row: np.ndarray) -> FaceRecognitionResult:
         aligned_face = self.align_face(frame, face_row)
         embedding = self.extract_embedding(aligned_face)
 
@@ -87,8 +97,8 @@ class FaceRecognitionService:
         self,
         person_id: str,
         display_name: str,
-        frame,
-        face_row,
+        frame: np.ndarray,
+        face_row: np.ndarray,
         quality: float = 1.0,
     ) -> None:
         if self.registry.get_identity(person_id) is None:
