@@ -1,2 +1,5 @@
-vosk>=0.3.45
-sounddevice>=0.4.6
+# Audio pipeline dependencies — Windows 11 friendly (no webrtcvad / resemblyzer)
+vosk
+pyttsx3
+sounddevice
+numpy

@@ -1,9 +1,14 @@
-"""No-op TTS backend used when voice synthesis is disabled."""
+"""No-op TTS implementation — used when no audio output is desired or available."""
 
 
-class NullTtsEngine:
-    """Ignore spoken text requests while preserving the TTS interface."""
+class NullTTS:
+    """Silent TTS stub; satisfies the same interface as Pyttsx3TTS."""
 
-    def say(self, text: str) -> None:
-        """Accept text without performing speech synthesis."""
-        return None
+    def start(self) -> None:
+        """No-op: nothing to initialise."""
+
+    def stop(self) -> None:
+        """No-op: nothing to tear down."""
+
+    def speak(self, text: str) -> None:  # noqa: ARG002
+        """Silently discard the utterance."""
